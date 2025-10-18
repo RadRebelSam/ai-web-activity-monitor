@@ -8,7 +8,7 @@ A Tampermonkey userscript that monitors your web browsing activity and responds 
 - 🤖 **AI-Powered Responses**: Uses OpenAI's GPT models to generate contextual messages
 - 🔊 **Azure Speech Services**: High-quality text-to-speech with multiple voice options
 - ⚙️ **Fully Configurable**: Easy-to-modify configuration file for all settings
-- 🎭 **Boss Persona**: professioanl and encouraging AI responses to keep you motivated
+- 🎭 **Sassy Sidekick Persona**: hilariously witty and sarcastic AI responses to keep you motivated with humor
 - 🚫 **Smart Triggering**: Prevents multiple simultaneous voice responses
 
 ## Prerequisites
@@ -130,7 +130,7 @@ settings: {
 
 ### Modifying AI Responses
 
-Edit the `systemPrompt.content` in the CONFIG object to change how the AI responds to different activities.
+Edit the `systemPrompt.content` in the CONFIG object to change how the AI responds to different activities. The current persona is a sassy, witty digital sidekick that uses humor and sarcasm to motivate you.
 
 ## Security Notes
 
