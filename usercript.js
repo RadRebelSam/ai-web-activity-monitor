@@ -130,6 +130,17 @@ You are a hilariously sarcastic, witty digital companion who monitors web activi
         }
     }
 
+    // Pendo track event helper - safely calls pendo.track() if Pendo is available
+    function pendoTrack(eventName, properties) {
+        try {
+            if (typeof pendo !== 'undefined' && typeof pendo.track === 'function') {
+                pendo.track(eventName, properties);
+            }
+        } catch (e) {
+            log(`Pendo tracking error: ${e.message}`);
+        }
+    }
+
     // ===========================================
     // WEBSITE MONITORING FUNCTIONS
     // ===========================================
@@ -146,6 +157,13 @@ You are a hilariously sarcastic, witty digital companion who monitors web activi
                 messageToSend = website.message; // Set the message to send to AI
                 roleToSend = website.role; // Set the role for the AI conversation
                 log(`Matched website: ${website.domain}`);
+                pendoTrack('website_activity_detected', {
+                    matched_domain: website.domain,
+                    user_message: website.message,
+                    user_role: website.role,
+                    current_url: currentUrl,
+                    timestamp: new Date().toISOString()
+                });
                 break; // Stop checking once we find a match
             }
         }
@@ -161,6 +179,10 @@ You are a hilariously sarcastic, witty digital companion who monitors web activi
         // Check if we should prevent multiple simultaneous voice responses
         if (CONFIG.settings.preventMultipleVoices && voicePromise) {
             log('Voice already playing, skipping...');
+            pendoTrack('voice_skipped_duplicate', {
+                matched_domain: messageToSend,
+                prevent_multiple_voices: true
+            });
             return voicePromise; // Return existing promise if voice is already playing
         }
 
@@ -199,15 +221,40 @@ You are a hilariously sarcastic, witty digital companion who monitors web activi
                         const data = JSON.parse(response.responseText);
                         const replyText = data.choices[0].message.content;
                         log(`AI Response: ${replyText}`);
+                        pendoTrack('ai_response_generated', {
+                            matched_domain: messageToSend,
+                            deployment_name: CONFIG.azureOpenAI.deploymentName,
+                            temperature: CONFIG.azureOpenAI.temperature,
+                            max_tokens: CONFIG.azureOpenAI.maxTokens,
+                            top_p: CONFIG.azureOpenAI.topP,
+                            frequency_penalty: CONFIG.azureOpenAI.frequencyPenalty,
+                            presence_penalty: CONFIG.azureOpenAI.presencePenalty,
+                            response_length: replyText.length,
+                            api_version: CONFIG.azureOpenAI.apiVersion
+                        });
                         // Convert the text response to speech
                         convertTextToSpeech(replyText).then(resolve).catch(reject);
                     } catch (e) {
                         log(`Error parsing Azure OpenAI response: ${e.message}`);
+                        pendoTrack('ai_response_error', {
+                            error_message: e.message,
+                            error_type: 'parse_error',
+                            matched_domain: messageToSend,
+                            deployment_name: CONFIG.azureOpenAI.deploymentName,
+                            api_version: CONFIG.azureOpenAI.apiVersion
+                        });
                         reject(e);
                     }
                 },
                 onerror: function(error) {
                     log(`Azure OpenAI API error: ${error}`);
+                    pendoTrack('ai_response_error', {
+                        error_message: String(error),
+                        error_type: 'api_error',
+                        matched_domain: messageToSend,
+                        deployment_name: CONFIG.azureOpenAI.deploymentName,
+                        api_version: CONFIG.azureOpenAI.apiVersion
+                    });
                     reject(error);
                 }
             });
@@ -258,29 +305,68 @@ You are a hilariously sarcastic, witty digital companion who monitors web activi
                         const audioBlob = new Blob([response.response], { type: 'audio/mpeg' });
                         const audioUrl = URL.createObjectURL(audioBlob); // Create a URL for the audio
                         const audio = new Audio(audioUrl); // Create an Audio object
-                        
+                        pendoTrack('tts_conversion_completed', {
+                            voice_name: CONFIG.azure.voice.name,
+                            voice_language: CONFIG.azure.voice.language,
+                            speech_rate: CONFIG.azure.voice.rate,
+                            speech_pitch: CONFIG.azure.voice.pitch,
+                            azure_region: CONFIG.azure.region,
+                            text_length: text.length,
+                            output_format: 'audio-16khz-128kbitrate-mono-mp3'
+                        });
+
                         // When audio finishes playing, clean up and resolve
                         audio.onended = () => {
                             URL.revokeObjectURL(audioUrl); // Free up memory
                             log('Audio playback completed');
+                            pendoTrack('tts_playback_completed', {
+                                voice_name: CONFIG.azure.voice.name,
+                                voice_language: CONFIG.azure.voice.language,
+                                speech_rate: CONFIG.azure.voice.rate,
+                                speech_pitch: CONFIG.azure.voice.pitch,
+                                azure_region: CONFIG.azure.region,
+                                text_length: text.length,
+                                matched_domain: messageToSend
+                            });
                             resolve(); // Signal that we're done
                         };
-                        
+
                         // Handle audio playback errors
                         audio.onerror = (error) => {
                             log(`Audio playback error: ${error}`);
+                            pendoTrack('tts_conversion_error', {
+                                error_message: String(error),
+                                error_type: 'playback_error',
+                                voice_name: CONFIG.azure.voice.name,
+                                azure_region: CONFIG.azure.region,
+                                text_length: text.length
+                            });
                             reject(error);
                         };
-                        
+
                         log('Starting audio playback...');
                         audio.play(); // Start playing the audio
                     } catch (e) {
                         log(`Error processing audio: ${e.message}`);
+                        pendoTrack('tts_conversion_error', {
+                            error_message: e.message,
+                            error_type: 'processing_error',
+                            voice_name: CONFIG.azure.voice.name,
+                            azure_region: CONFIG.azure.region,
+                            text_length: text.length
+                        });
                         reject(e);
                     }
                 },
                 onerror: function(error) {
                     log(`Azure TTS API error: ${error}`);
+                    pendoTrack('tts_conversion_error', {
+                        error_message: String(error),
+                        error_type: 'api_error',
+                        voice_name: CONFIG.azure.voice.name,
+                        azure_region: CONFIG.azure.region,
+                        text_length: text.length
+                    });
                     reject(error);
                 }
             });
@@ -323,4 +409,11 @@ You are a hilariously sarcastic, witty digital companion who monitors web activi
 
     // Log that the script has been initialized
     log('AI Web Activity Monitor initialized');
+    pendoTrack('monitor_initialized', {
+        monitored_website_count: CONFIG.websites.length,
+        enabled_website_count: CONFIG.websites.filter(w => w.enabled).length,
+        prevent_multiple_voices: CONFIG.settings.preventMultipleVoices,
+        check_delay: CONFIG.settings.checkDelay,
+        logging_enabled: CONFIG.settings.enableLogging
+    });
 })();
