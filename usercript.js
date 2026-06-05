@@ -14,6 +14,24 @@
     'use strict'; // Enable strict mode for better error handling
 
     // ===========================================
+    // PENDO SDK INSTALL
+    // ===========================================
+    (function(apiKey){
+        (function(p,e,n,d,o){var v,w,x,y,z;o=p[d]=p[d]||{};o._q=o._q||[];
+        v=['initialize','identify','updateOptions','pageLoad','track', 'trackAgent'];for(w=0,x=v.length;w<x;++w)(function(m){
+        o[m]=o[m]||function(){o._q[m===v[0]?'unshift':'push']([m].concat([].slice.call(arguments,0)));};})(v[w]);
+        y=e.createElement(n);y.async=!0;y.src='https://cdn.pendo.io/agent/static/'+apiKey+'/pendo.js';
+        z=e.getElementsByTagName(n)[0];z.parentNode.insertBefore(y,z);})(window,document,'script','pendo');
+    })('4cb6baf4-c2a8-488a-a641-fbccbe64d42e');
+
+    // Initialize Pendo with anonymous visitor
+    pendo.initialize({
+        visitor: {
+            id: ''
+        }
+    });
+
+    // ===========================================
     // CONFIGURATION - Edit these values with your actual API keys
     // ===========================================
     const CONFIG = {
