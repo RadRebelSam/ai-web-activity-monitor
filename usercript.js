@@ -14,24 +14,6 @@
     'use strict'; // Enable strict mode for better error handling
 
     // ===========================================
-    // PENDO SDK INSTALL
-    // ===========================================
-    (function(apiKey){
-        (function(p,e,n,d,o){var v,w,x,y,z;o=p[d]=p[d]||{};o._q=o._q||[];
-        v=['initialize','identify','updateOptions','pageLoad','track', 'trackAgent'];for(w=0,x=v.length;w<x;++w)(function(m){
-        o[m]=o[m]||function(){o._q[m===v[0]?'unshift':'push']([m].concat([].slice.call(arguments,0)));};})(v[w]);
-        y=e.createElement(n);y.async=!0;y.src='https://cdn.pendo.io/agent/static/'+apiKey+'/pendo.js';
-        z=e.getElementsByTagName(n)[0];z.parentNode.insertBefore(y,z);})(window,document,'script','pendo');
-    })('4cb6baf4-c2a8-488a-a641-fbccbe64d42e');
-
-    // Initialize Pendo with anonymous visitor
-    pendo.initialize({
-        visitor: {
-            id: ''
-        }
-    });
-
-    // ===========================================
     // CONFIGURATION - Edit these values with your actual API keys
     // ===========================================
     const CONFIG = {
@@ -124,6 +106,54 @@ You are a hilariously sarcastic, witty digital companion who monitors web activi
             enableLogging: true // If true, shows debug messages in browser console
         }
     };
+
+    // ===========================================
+    // PENDO SDK INSTALL
+    // ===========================================
+    // This script runs on every site (@match *://*/*), but Pendo is only loaded on
+    // the enabled sites in CONFIG.websites. On any other site no Pendo script is
+    // injected and nothing is sent. The hostname is matched (not the full URL, as
+    // checkCurrentUrl does) so that e.g. a search for "youtube.com" elsewhere doesn't count.
+    const pageHost = window.location.hostname;
+    const isMonitoredSite = CONFIG.websites.some((website) => website.enabled &&
+        (pageHost === website.domain || pageHost.endsWith('.' + website.domain)));
+
+    if (isMonitoredSite) {
+        (function(apiKey){
+            (function(p,e,n,d,o){var v,w,x,y,z;o=p[d]=p[d]||{};o._q=o._q||[];
+            v=['initialize','identify','updateOptions','pageLoad','track', 'trackAgent'];for(w=0,x=v.length;w<x;++w)(function(m){
+            o[m]=o[m]||function(){o._q[m===v[0]?'unshift':'push']([m].concat([].slice.call(arguments,0)));};})(v[w]);
+            y=e.createElement(n);y.async=!0;y.src='https://cdn.pendo.io/agent/static/'+apiKey+'/pendo.js';
+            z=e.getElementsByTagName(n)[0];z.parentNode.insertBefore(y,z);})(window,document,'script','pendo');
+        })('4cb6baf4-c2a8-488a-a641-fbccbe64d42e');
+
+        // Initialize Pendo with an anonymous visitor. These pages belong to other
+        // sites, so record only which monitored site was visited, not what was done there.
+        pendo.initialize({
+            visitor: {
+                id: ''
+            },
+            // Record the site only (e.g. https://www.youtube.com/): the path, query
+            // string and fragment identify the video, thread, repo or search being viewed
+            location: {
+                transforms: [
+                    { attr: 'pathname', action: 'Clear' },
+                    { attr: 'search', action: 'Clear' },
+                    { attr: 'hash', action: 'Clear' }
+                ]
+            },
+            // Don't capture clicks, focus, form submits or field changes on the site
+            analytics: {
+                excludeEvents: ['click', 'focus', 'submit', 'change']
+            },
+            // Never record session replays of the site, whatever the subscription settings
+            recording: {
+                enabled: false
+            },
+            // Don't attach the previously visited site (document.referrer) to events
+            disableUtmReferrer: true
+        });
+    }
 
     // ===========================================
     // GLOBAL VARIABLES
